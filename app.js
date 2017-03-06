@@ -1,6 +1,6 @@
 var request = require('request'),
 	cheerio = require('cheerio'),
-	// connection = require('./sql.js'),
+	connection = require('./sql.js'),
 	configs = require('./config.js');
 var userPool = [], searchLevel = configs.searchLevel,
 	dbOption = configs.dbOption;
