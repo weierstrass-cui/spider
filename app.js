@@ -1,9 +1,10 @@
-var request = require('request');
-// var iconv = require('iconv-lite');
-// var BufferHelper = require('bufferhelper');
-var cheerio = require('cheerio');
-var fs = require('fs');
-var userPool = [], searchLevel = 3;
+var request = require('request'),
+	cheerio = require('cheerio'),
+	// connection = require('./sql.js'),
+	configs = require('./config.js');
+var userPool = [], searchLevel = configs.searchLevel,
+	dbOption = configs.dbOption;
+
 var getPage = function(url, callback){
 	request({
 		url: url,
@@ -52,4 +53,4 @@ var getUser = function(userName, level){
 	});
 }
 
-getUser('cui-xiao-piao-66', 0);
+// getUser('cui-xiao-piao-66', 0);
