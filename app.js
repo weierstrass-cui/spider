@@ -43,14 +43,35 @@ var getUser = function(userName, level){
 				if( isExist ){
 					continue;
 				}
-				getUser(i, thisLevel);
-				userPool.push({
-					name: userList[i].name,
-					url: i
-				});
+				(function(index){
+					var con = new connection(dbOption, 'sp_user');
+					con.where({
+						uid: index
+					}).find(null, null, function(findRes){
+						if( findRes.rows.length ){
+							con.release();
+						}else{
+							con.insert({
+								nickname: userList[index].name,
+								uid: index,
+								sex: userList[index].gender
+							}, function(insertRes){
+								if( insertRes.rows ){
+									getUser(index, thisLevel);
+									userPool.push({
+										name: userList[index].name,
+										url: index
+									});
+								}
+								con.release();
+							});
+						}
+					});
+				})(i);
 			}
 		}
 	});
 }
 
-// getUser('cui-xiao-piao-66', 0);
+
+getUser('cui-xiao-piao-66', 0);

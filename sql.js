@@ -34,7 +34,31 @@ var SqlClass = function(options, tableName){
 		// log4js('info', 'RELEASE CONNECTION');
 		return this;
 	}
-	this.insert = function(){
+	this.insert = function(data, callBack){
+		if( !TBN || typeof TBN !== 'string' ){
+			log4js('error', 'NO TABLE');
+		}else{
+			var _this = this;
+			var colums = [], values = [];
+			for(var i in data){
+				colums.push(i);
+				values.push("'" + data[i] + "'");
+			}
+			var nql = 'insert into ' + TBN + ' (' + colums.join(', ') + ') values (' + values.join(', ') + ')';
+			log4js('info', nql);
+			_this.connection.query(nql, function(err, result){
+				if( err ){
+					log4js('error', err);
+					if( callBack ){
+						callBack('ERROR');
+					}
+					return;
+				}
+				if( result ){
+					_this.where(data).find(null, null, callBack);
+				}
+			});
+		}
 		return this;
 	}
 	this.update = function(opts, callBack){
