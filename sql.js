@@ -1,196 +1,259 @@
-var mysql = require('mysql'),
-	log4js = require('./loger.js');
-var limitNum = 20;
+var mysql = require('mysql');
+var log4nql = function(logType, logMsg, callback){
+	switch( logType ){
+		case 'info':
+			typeof callback === 'function' && callback({'code': '100', msg: 'success', data: logMsg});
+			break;
+		case 'error':
+			console.log(logType + ': ' + logMsg);
+			typeof callback === 'function' && callback({'code': '101', 'msg': logMsg});
+			break;
+	}
+}
 
-var SqlClass = function(options, tableName){
+var SqlClass = function(options){
 	if( !options || typeof options !== 'object' ){
-		log4js('error', 'NO DATABASE INFORMATION');
+		log4nql('error', 'NO DB INFORMATION');
 		return false;
 	}
+
+	this.limitNum = options.limit || 20;
+
 	this.connection = mysql.createConnection({
 		host: options.host,
 		user: options.user,
+		port: options.port || '3306',
 		password: options.password,
 		database: options.database
 	});
-	// log4js('info', 'CONNECTED CONNECTION');
-	var TBN = tableName, WHERE = [], ORDER = '';
+}
+SqlClass.prototype.buildNql = function(options){
+	var limitNum = this.limitNum, columString = '*', whereString = '', groupString = '', orderString = '', startNum = 0,
+		whereArray = ['1 = 1'];
+	try{
+		if( options ){
+			if( options.colums && 'object' === typeof options.colums ){
+				if( options.colums.constructor === Array && options.colums.length ){
+					columString = options.colums.join(', ');
+				}else if( options.colums.constructor === Object ){
+					var columArray = [];
+					for( var i in options.colums ){
+						columArray.push( i + ' as ' + options.colums[i] );
+					}
+					columString = columArray.join(', ');
+				}
+			}
 
-	var getWhere = function(){
-		var _there = ' where 1 = 1';
-		if( WHERE.length ){
-			_there += ' and ' + WHERE.join(' and ');
-			WHERE = [];
-		}
-		return _there;
-	}
-	var getOrder = function(){
-		var orderString = ORDER;
-		ORDER = '';
-		return orderString;
-	}
-	this.release = function(){
-		this.connection.end();
-		// log4js('info', 'RELEASE CONNECTION');
-		return this;
-	}
-	this.insert = function(data, callBack){
-		if( !TBN || typeof TBN !== 'string' ){
-			log4js('error', 'NO TABLE');
-		}else{
-			var _this = this;
-			var colums = [], values = [];
-			for(var i in data){
-				colums.push(i);
-				values.push("'" + data[i] + "'");
+			if( options.where && options.where.constructor === Object ){
+				for( var i in options.where ){
+					whereArray.push(i + ' = "' + options.where[i] + '"');
+				}
 			}
-			var nql = 'insert into ' + TBN + ' (' + colums.join(', ') + ') values (' + values.join(', ') + ')';
-			log4js('info', nql);
-			_this.connection.query(nql, function(err, result){
-				if( err ){
-					log4js('error', err);
-					if( callBack ){
-						callBack('ERROR');
-					}
-					return;
+
+			if( options.group ){
+				if( typeof options.group === 'string' ){
+					groupString = options.group;
+				}else if( options.group.constructor === Array ){
+					groupString = options.group.join(', ');
 				}
-				if( result ){
-					_this.where(data).find(null, null, callBack);
-				}
-			});
-		}
-		return this;
-	}
-	this.update = function(opts, callBack){
-		if( !TBN || typeof TBN !== 'string' ){
-			log4js('error', 'NO TABLE');
-			return;
-		}else{
-			var SET = [], _this = this, where = getWhere();
-			for(var i in opts){
-				SET.push(i + '= "' + opts[i] + '"');
 			}
-			SET = SET.join(', ');
-			var nql = 'update ' + TBN + ' set ' + SET + where;
-			log4js('info', nql);
-			this.connection.query(nql, function(err, rows, fields){
-				if( err ){
-					log4js('error', err);
-					if( callBack ){
-						callBack('ERROR');
-					}
-					return;
+
+			if( options.order && options.order.constructor === Object ){
+				var orderArray = [];
+				for( var i in options.order ){
+					orderArray.push(i + ' ' + options.order[i]);
 				}
-				if( rows && callBack ){
-					nql = 'select * from ' + TBN + where;
-					log4js('info', nql);
-					_this.connection.query(nql, function(findErr, findRows, findFields){
-						if( findErr ){
-							log4js('error', err);
-							if( callBack ){
-								callBack('ERROR');
-							}
+				orderString = orderArray.join(', ');
+			}
+			if( options.page && 'number' === typeof options.page ){
+				startNum = (options.page - 1) * limitNum;
+			}
+		}
+		whereString = whereArray.join(' and ');
+		return {
+			columString: columString,
+			whereString: whereString,
+			groupString: groupString,
+			orderString: orderString,
+			startNum: startNum
+		}
+	}catch(e){
+		log4nql('error', e);
+	}
+}
+SqlClass.prototype.insert = function(table){
+	var connection = this.connection, callback = null, options = null;
+	if( table && 'string' === typeof table ){
+		if( arguments[1] ){
+			if( 'object' === typeof arguments[1] ){
+				options = arguments[1];
+				if( arguments[2] && 'function' === typeof arguments[2] ){
+					callback = arguments[2];
+				}
+			}else if( 'function' === typeof arguments[1] ){
+				callback = arguments[1];
+			}
+		}
+		
+		if( options && 'object' === typeof options ){
+			try{
+				var colums = [], datas = [];
+				for(var i in options){
+					colums.push(i);
+					datas.push('"' + options[i] + '"');
+				}
+				var nql = 'insert into ' + table + '(' + colums.join(', ') + ') values (' + datas.join(', ') + ');';
+				connection.query(nql, function(insertErr, insertResult){
+					if( insertErr ){
+						log4nql('error', insertErr, callback);
+						return;
+					}
+					nql = 'select * from ' + table + ' limit ' + (insertResult.insertId - 1) + ', 1';
+					connection.query(nql, function(selectErr, selectResult){
+						if( selectErr ){
+							log4nql('error', selectErr, callback);
 							return;
 						}
-						if( findRows ){
-							callBack({
-								rows: findRows.length == 1 ? findRows[0] : findRows
-							});
-						}
+						log4nql('info', selectResult[0], callback);
 					});
-				}
-			});
-		}
-		return this;
-	}
-	this.find = function(colums, pageNum, callBack){
-		if( !TBN || typeof TBN !== 'string' ){
-			log4js('error', 'NO TABLE');
+				});
+			}catch(e){
+				log4nql('error', e, callback);
+			}
 		}else{
-			var where = getWhere(), con = this.connection;
-			var nql = 'select count(*) as count from ' + TBN + where;
-			con.query(nql, function(err, rows, fields){
-				if( err ){
-					log4js('error', err);
-					if( callBack ){
-						callBack('ERROR');
+			log4nql('error', 'INSERT NO VALUES', callback);
+		}
+	}else{
+		log4nql('error', 'INSERT NO TABLE', callback);
+	}
+	return this;
+}
+SqlClass.prototype.update = function(table){
+	var _this = this, connection = this.connection, callback = null, options = null;
+	if( table && 'string' === typeof table ){
+		try{
+			if( arguments[1] ){
+				if( 'object' === typeof arguments[1] ){
+					options = arguments[1];
+					if( arguments[2] && 'function' === typeof arguments[2] ){
+						callback = arguments[2];
 					}
-					return;
+				}else if( 'function' === typeof arguments[1] ){
+					callback = arguments[1];
 				}
-				if( rows ){
-					var count = rows[0].count, totalPages = Math.ceil(count / limitNum),
-						colums = colums && colums.length ? colums.join(', ') : '*',
-						startNum = pageNum * limitNum || 0;
-					nql = 'select ' + colums + ' from ' + TBN + where  + getOrder() + ' limit ' + startNum + ', ' + limitNum;
-					log4js('info', nql);
-					con.query(nql, function(err, rows, fields){
-						if( err ){
-							log4js('error', err);
-							if( callBack ){
-								callBack('ERROR');
-							}
+			}
+			
+			if( options.values && 'object' === typeof options.values ){
+				var nqlQuery = this.buildNql(options), updateValueArray = [];
+				for(var i in options.values){
+					updateValueArray.push(i + '= "' + options.values[i] + '"');
+				}
+				var nql = 'update ' + table + ' set ' + updateValueArray.join(', ') + ' where ' + nqlQuery.whereString;
+				connection.query(nql, function(updateErr, updateResult){
+					if( updateErr ){
+						log4nql('error', updateErr, callback);
+						return;
+					}
+					log4nql('info', {
+						changeRows: updateResult.changedRows
+					}, callback);
+				});
+			}else{
+				log4nql('error', 'UPDATE NO VALUES', callback);
+			}
+		}catch(e){
+			log4nql('error', e, callback);
+		}
+	}else{
+		log4nql('error', 'FIND NO TABLE', callback);
+	}
+	return this;
+}
+SqlClass.prototype.find = function(table){
+	var _this = this, limitNum = this.limitNum, connection = this.connection, callback = null, options = null;
+	if( table && 'string' === typeof table ){
+		try{
+			if( arguments[1] ){
+				if( 'object' === typeof arguments[1] ){
+					options = arguments[1];
+					if( arguments[2] && 'function' === typeof arguments[2] ){
+						callback = arguments[2];
+					}
+				}else if( 'function' === typeof arguments[1] ){
+					callback = arguments[1];
+				}
+			}
+			
+			this.count(table, options || {}, function(countResult){
+				if( countResult && countResult.data && countResult.data.totalRows > 0 ){
+					var totalRows = countResult.data.totalRows, totalPages = Math.ceil(totalRows / limitNum);
+					var nqlQuery = _this.buildNql(options);
+					var nql = 'select ' + nqlQuery.columString + ' from ' + table + ' where ' + nqlQuery.whereString;
+					if( nqlQuery.groupString ) nql += ' group by ' + nqlQuery.groupString;
+					if( nqlQuery.orderString ) nql += ' order by ' + nqlQuery.orderString;
+					nql += ' limit ' + nqlQuery.startNum + ', ' + limitNum;
+
+					connection.query(nql, function(selectErr, selectResult){
+						if( selectErr ){
+							log4nql('error', selectErr, callback);
 							return;
 						}
-						if( rows && callBack ){
-							callBack({
-								totalPages: totalPages,
-								totalRows: count,
-								rows: rows
-							});
-						}
+						log4nql('info', {
+							totalPages: totalPages,
+							totalRows: totalRows,
+							rows: selectResult
+						}, callback);
 					});
+				}else{
+					log4nql('info', {
+						totalPages: 0,
+						totalRows: 0,
+						rows: null
+					}, callback);
 				}
 			});
+		}catch(e){
+			log4nql('error', e, callback);
 		}
-		return this;
+	}else{
+		log4nql('error', 'FIND NO TABLE', callback);
 	}
-	this.where = function(opts){
-		WHERE = [];
-		for(var i in opts){
-			WHERE.push(i + '= "' + opts[i] + '"');
-		}
-		return this;
-	}
-	this.setOrder = function(opts){
-		ORDER = ' order by ' + opts.orderField + ' ' + opts.orderType;
-		return this;
-	}
-	this.queryTable = function(callBack){
-		log4js('info', 'show tables');
-		this.connection.query('show tables', function(err, rows, fields){
-			if( err ){
-				log4js('error', err);
-				if( callBack ){
-					callBack('ERROR');
-				}
-				return;
-			}
-			if( rows && callBack ){
-				callBack(rows);
-			}
-		});
-		return this;
-	}
-	this.queryFields = function(callBack){
-		if( !TBN || typeof TBN !== 'string' ){
-			log4js('error', 'NO TABLE');
-		}else{
-			log4js('info', 'show fields from ' + TBN);
-			this.connection.query('show fields from ' + TBN, function(err, rows, fields){
-				if( err ){
-					log4js('error', err);
-					if( callBack ){
-						callBack('ERROR');
+	return this;
+}
+SqlClass.prototype.count = function(table){
+	var connection = this.connection, callback = null, options = null;
+	if( table && 'string' === typeof table ){
+		try{
+			if( arguments[1] ){
+				if( 'object' === typeof arguments[1] ){
+					options = arguments[1];
+					if( arguments[2] && 'function' === typeof arguments[2] ){
+						callback = arguments[2];
 					}
+				}else if( 'function' === typeof arguments[1] ){
+					callback = arguments[1];
+				}
+			}
+			var nqlQuery = this.buildNql(options);
+			var nql = 'select count(*) as count from ' + table + ' where ' + nqlQuery.whereString;
+			if( nqlQuery.groupString ) nql += ' group by ' + nqlQuery.groupString;
+
+			connection.query(nql, function(countErr, countResult){
+				if( countErr ){
+					log4nql('error', countErr, callback);
 					return;
 				}
-				if( rows && callBack ){
-					callBack(rows);
-				}
+				log4nql('info', {
+					totalRows: countResult[0].count
+				}, callback);
 			});
+		}catch(e){
+			log4nql('error', e, callback);
 		}
-		return this;
+	}else{
+		log4nql('error', 'FIND NO TABLE', callback);
 	}
+	return this;
 }
 
 module.exports = SqlClass;
