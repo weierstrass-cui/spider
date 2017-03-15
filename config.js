@@ -3,8 +3,9 @@ module.exports = {
 		host: 'localhost',
 		user: 'root',
 		password: '',
-		database: 'spider'
+		database: 'spider',
+		limit: '*'
 	},
-	searchLevel: 10,
+	searchLevel: 999,
 	log: '/Users/FredCui/Documents/Project/spider'
 }

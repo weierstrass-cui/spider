@@ -1,3 +1,5 @@
+'use strict'
+
 var mysql = require('mysql');
 var log4nql = function(logType, logMsg, callback){
 	switch( logType ){
@@ -26,6 +28,9 @@ var SqlClass = function(options){
 		password: options.password,
 		database: options.database
 	});
+}
+SqlClass.prototype.release = function(){
+	this.connection.end();
 }
 SqlClass.prototype.buildNql = function(options){
 	var limitNum = this.limitNum, columString = '*', whereString = '', groupString = '', orderString = '', startNum = 0,
@@ -65,7 +70,7 @@ SqlClass.prototype.buildNql = function(options){
 				}
 				orderString = orderArray.join(', ');
 			}
-			if( options.page && 'number' === typeof options.page ){
+			if( 'number' === typeof options.page && 'number' === typeof limitNum && limitNum > 0 ){
 				startNum = (options.page - 1) * limitNum;
 			}
 		}
@@ -191,8 +196,7 @@ SqlClass.prototype.find = function(table){
 					var nql = 'select ' + nqlQuery.columString + ' from ' + table + ' where ' + nqlQuery.whereString;
 					if( nqlQuery.groupString ) nql += ' group by ' + nqlQuery.groupString;
 					if( nqlQuery.orderString ) nql += ' order by ' + nqlQuery.orderString;
-					nql += ' limit ' + nqlQuery.startNum + ', ' + limitNum;
-
+					if( 'number' === typeof limitNum && limitNum > 0 ) nql += ' limit ' + nqlQuery.startNum + ', ' + limitNum;
 					connection.query(nql, function(selectErr, selectResult){
 						if( selectErr ){
 							log4nql('error', selectErr, callback);

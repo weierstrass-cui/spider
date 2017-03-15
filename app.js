@@ -1,8 +1,10 @@
+'use strict'
+
 var request = require('request'),
 	cheerio = require('cheerio'),
 	connection = require('./sql.js'),
 	configs = require('./config.js');
-var userPool = [], searchLevel = configs.searchLevel,
+var userPool = {}, searchLevel = configs.searchLevel,
 	dbOption = configs.dbOption;
 
 var getPage = function(url, callback){
@@ -33,35 +35,31 @@ var getUser = function(userName, level){
 			var rawData = JSON.parse(rawString);
 			var userList = rawData.entities.users;
 			for(var i in userList){
-				var isExist = false;
-				for(var j in userPool){
-					if( i === userPool[j].url ){
-						isExist = true;
-						break;
-					}
-				}
-				if( isExist ){
+				if( userPool[i] ){
 					continue;
 				}
+				userPool[i] = {
+					nickname: userList[i].name,
+					uid: i
+				};
 				(function(index){
-					var con = new connection(dbOption, 'sp_user');
-					con.where({
-						uid: index
-					}).find(null, null, function(findRes){
-						if( findRes.rows.length ){
+					var con = new connection(dbOption);
+					con.count('sp_user', {
+						where: {
+							uid: index
+						}
+					}, function(countRes){
+						if( countRes && countRes.data && countRes.data.totalRows > 0 ){
+							getUser(index, thisLevel);
 							con.release();
 						}else{
-							con.insert({
+							con.insert('sp_user', {
 								nickname: userList[index].name,
 								uid: index,
 								sex: userList[index].gender
-							}, function(insertRes){
-								if( insertRes.rows ){
+							}, function(insertRresult){
+								if( insertRresult && insertRresult.data && insertRresult.data.rows ){
 									getUser(index, thisLevel);
-									userPool.push({
-										name: userList[index].name,
-										url: index
-									});
 								}
 								con.release();
 							});
