@@ -100,8 +100,8 @@ var updateUserQuestion = function(){
 										title: data.title.replace(/"/g, '\''),
 										answerCount: data.answerCount,
 										followerCount: data.followerCount,
-										createTime: data.created + '000',
-										updateTime: data.updatedTime + '000'
+										createTime: data.created,
+										updateTime: data.updatedTime
 									}, function(insertRresult){
 										con.release();
 									});
