@@ -196,7 +196,8 @@ SqlClass.prototype.find = function(table){
 					var nql = 'select ' + nqlQuery.columString + ' from ' + table + ' where ' + nqlQuery.whereString;
 					if( nqlQuery.groupString ) nql += ' group by ' + nqlQuery.groupString;
 					if( nqlQuery.orderString ) nql += ' order by ' + nqlQuery.orderString;
-					if( 'number' === typeof limitNum && limitNum > 0 ) nql += ' limit ' + nqlQuery.startNum + ', ' + limitNum;
+					if( limitNum > 0 ) nql += ' limit ' + nqlQuery.startNum + ', ' + limitNum;
+
 					connection.query(nql, function(selectErr, selectResult){
 						if( selectErr ){
 							log4nql('error', selectErr, callback);
