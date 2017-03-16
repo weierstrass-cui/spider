@@ -20,6 +20,9 @@ var getPage = function(url, callback){
 	}, function(error, response, body){
 		if(error){
 			console.log(error);
+			setTimeout(function(){
+				getPage(url, callback);
+			}, 3000);
 			return false;
 		}
 		typeof callback === 'function' && callback(body);
@@ -92,7 +95,19 @@ var updateUserQuestion = function(){
 								}
 							}, function(countRes){
 								if( countRes && countRes.data && countRes.data.totalRows > 0 ){
-									con.release();
+									con.update('sp_questions', {
+										where: {
+											qid: index
+										},
+										values: {
+											answerCount: data.answerCount,
+											followerCount: data.followerCount,
+											createTime: data.created,
+											updateTime: data.updatedTime
+										}
+									}, function(){
+										con.release();
+									});
 								}else{
 									con.insert('sp_questions', {
 										qid: index,
@@ -127,6 +142,6 @@ var updateUserQuestion = function(){
 	});
 }
 
-// getUser('cui-xiao-piao-66', 0);
+// getUser('zhao-hui-jun-4', 0);
 
 updateUserQuestion();
