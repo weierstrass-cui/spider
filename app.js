@@ -126,6 +126,8 @@ var updateUser = function(){
 							updateUserInformation(++userIndex);
 							con.release();
 						});
+					}else{
+						updateUserInformation(++userIndex);
 					}
 				}
 			});
