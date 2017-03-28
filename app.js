@@ -13,6 +13,20 @@ var headers = {
     'Connection': 'keep-alive'
 }
 
+var dateFormat = function(date){
+	var addZero = function( num ){
+		return num > 9 ? num : ('0' + num);
+	}
+
+	var dateString = date.getFullYear() + '-';
+		dateString += addZero(date.getMonth() + 1) + '-';
+		dateString += addZero(date.getDate()) + ' ';
+		dateString += addZero(date.getHours()) + ':';
+		dateString += addZero(date.getMinutes()) + ':';
+		dateString += addZero(date.getSeconds()) + '';
+	return dateString;
+}
+
 var getPage = function(url, callback){
 	request({
 		url: url,
@@ -55,13 +69,25 @@ var getUser = function(userName, level){
 						}
 					}, function(countRes){
 						if( countRes && countRes.data && countRes.data.totalRows > 0 ){
-							getUser(index, thisLevel);
-							con.release();
+							con.update('sp_user', {
+								where: {
+									uid: index
+								},
+								values: {
+									nickname: userList[index].name,
+									sex: userList[index].gender,
+									followed: userList[index].followerCount
+								}
+							}, function(updateRes){
+								getUser(index, thisLevel);
+								con.release();
+							});
 						}else{
 							con.insert('sp_user', {
 								nickname: userList[index].name,
 								uid: index,
-								sex: userList[index].gender
+								sex: userList[index].gender,
+								followed: userList[index].followerCount
 							}, function(insertRresult){
 								if( insertRresult && insertRresult.data && insertRresult.data.rows ){
 									getUser(index, thisLevel);
@@ -73,6 +99,53 @@ var getUser = function(userName, level){
 				})(i);
 			}
 		}
+	});
+}
+var updateUser = function(){
+	var userList = null;
+	var updateUserInformation = function(userIndex){
+		if( userList && userList[userIndex] ){
+			var uid = userList[userIndex].uid;
+			getPage('https://www.zhihu.com/people/' + uid + '/following', function(res){
+				var $ = cheerio.load(res), rawString = $('#data').attr('data-state');
+				if( rawString ){
+					var rawData = JSON.parse(rawString);
+					var users = rawData.entities.users;
+					if( users && users[uid] ){
+						var con = new connection(dbOption);
+						con.update('sp_user', {
+							where: {
+								uid: uid
+							},
+							values: {
+								sex: users[uid].gender,
+								followed: users[uid].followerCount,
+								updateTime: dateFormat(new Date(), 'yyyy-MM-dd hh:mm:ss')
+							}
+						}, function(updateRes){
+							updateUserInformation(++userIndex);
+							con.release();
+						});
+					}
+				}
+			});
+		}
+	}
+	var con = new connection(dbOption);
+	con.find('sp_user', {
+		where: {
+			followed: '0'
+		},
+		order: {
+			id: 'desc'
+		},
+		colums: ['uid', 'updateTime']
+	}, function(findRes){
+		if( findRes && findRes.data && findRes.data && findRes.data.rows.length ){
+			userList = findRes.data.rows;
+			updateUserInformation(0);
+		}
+		con.release();
 	});
 }
 
@@ -142,6 +215,10 @@ var updateUserQuestion = function(){
 	});
 }
 
-// getUser('zhao-hui-jun-4', 0);
+// getUser('an-rui-dong-98', 0);
 
-updateUserQuestion();
+updateUser();
+
+// updateUserQuestion();
+
+
