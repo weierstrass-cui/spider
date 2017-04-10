@@ -8,8 +8,9 @@ var userPool = {}, searchLevel = configs.searchLevel,
 	dbOption = configs.dbOption;
 
 var headers = {
-	'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.98 Safari/537.36',
-    'Cookie': 'aliyungf_tc=AQAAAO3w5yrSFAkAFY32OpDAwyD4qK8L; q_c1=e642a472472642b0ab7e21635b7b62d5|1488419552000|1488419552000; _xsrf=12e47601701d59ebae024b94963bfdae; cap_id="ZjFiNGRjMzNlZGM3NDg1YThiZWVlOWJkNTc3MjAwMmE=|1488419552|ddd75fbfbda48edde377357f51c3aa5017c0bbc6"; l_cap_id="NTJkMWU1NjFjYTJhNGUyMzk5MjAyMzk0YmRjMGZlNGY=|1488419552|83196e4c2805491dda8e52dd4132b89fbbb989cd"; d_c0="AFBCFa5BYwuPTrV_ZYPiaLlFadsM7DDFOhA=|1488419556"; _zap=ee852a44-121d-4399-aaa3-53438bc2102c; __utmt=1; login="ZjFkMDA2MGVkMWFlNDVjM2IxZDdmZDQzNGNjMWU1MmY=|1488419564|777793b49ad4558c26f3d19bf1ce1cb8b431f1f4"; nweb_qa=heifetz; z_c0=Mi4wQUdDQ2ZoMDlZd3NBVUVJVnJrRmpDeGNBQUFCaEFsVk43QWZmV0FCNm92RDBPT2YzZ21WYTgweHYtRUp5QXg0X1BB|1488419583|b88d4cdc33a8acfcb13d99b1d27611248dd7853b; __utma=51854390.744340117.1488419562.1488419562.1488419562.1; __utmb=51854390.6.10.1488419562; __utmc=51854390; __utmz=51854390.1488419562.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __utmv=51854390.100--|2=registration_date=20170302=1^3=entry_date=20170302=1',
+	'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+	'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 9_1 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0 Mobile/13B143 Safari/601.1',
+    'Cookie': 'q_c1=8911399a93ee4a99b0ab2e8bddda1784|1489296819000|1489296819000; nweb_qa=heifetz; d_c0="AFCCBi1UcAuPThtP58EDcMJVndvHGcAaDB8=|1489296819"; _zap=2ed101dd-f0cf-4cb4-b4db-10128cf76ca9; _xsrf=19e2dceb4d8653a14e50a6874ff72cef; aliyungf_tc=AQAAAOGhBDh6XwQA3IHtdHBIeRs7VCRM; r_cap_id="NDY4YTFmMjU0YjkzNGU3ZDhiNzc3MDMwZGNmOTBjMTg=|1491618474|ba4d3ab7442db050eb64f027c44f6410973cbff4"; cap_id="Mzk4YzQwMTNjYjBkNGU5Mzg2NWI0NTE0Y2E0ODY5YTg=|1491618474|e294e35d65f23e76f5cf295f074cbdeddf23914b"; l_n_c=1; z_c0=Mi4wQUdDQ2ZoMDlZd3NBVUlJR0xWUndDeGNBQUFCaEFsVk51dGNQV1FDSkZEcll3OUJQck4xSHd2Z3pVMFdDXzlpUnF3|1491618636|7e42bf8ed0c4e69a46b586f0008ca87918511902; __utma=51854390.255859250.1489296825.1489748801.1491618319.4; __utmb=51854390.0.10.1491618319; __utmc=51854390; __utmz=51854390.1489296825.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __utmv=51854390.100--|2=registration_date=20170302=1^3=entry_date=20170302=1',
     'Connection': 'keep-alive'
 }
 
@@ -101,25 +102,56 @@ var getUser = function(userName, level){
 		}
 	});
 }
+
+var getUserInformation = function(body){
+	try{
+		var $ = cheerio.load(body), user = $('a.name'), followerList = $('.zm-item-link-avatar');
+		var userName = user.text(),
+			userId = user.attr('href').split('/')[2];
+		var gender = $('span.gender'), sex = -1;
+		if( gender.find('.icon-profile-male').length ){
+			sex = 1;
+		}else if( gender.find('.icon-profile-female').length ){
+			sex = 0;
+		}
+		var followerCount = $('.zm-profile-side-following').find('a').eq(1).find('strong').text();
+		var profile = $('.profile-navbar'),
+			asks = profile.find('a').eq(1).find('span').text() || 0,
+			answers = profile.find('a').eq(2).find('span').text() || 0;
+		return {
+			nickname: userName,
+			uid: userId,
+			sex: sex,
+			followed: followerCount,
+			asks: asks,
+			answers: answers
+		}
+	}catch(e){
+		cosole.log(e);
+		return null;
+	}
+}
+
 var updateUser = function(){
 	var userList = null;
 	var updateUserInformation = function(userIndex){
 		if( userList && userList[userIndex] ){
 			var uid = userList[userIndex].uid;
-			getPage('https://www.zhihu.com/people/' + uid + '/following', function(res){
-				var $ = cheerio.load(res), rawString = $('#data').attr('data-state');
-				if( rawString ){
-					var rawData = JSON.parse(rawString);
-					var users = rawData.entities.users;
-					if( users && users[uid] ){
+			getPage('https://www.zhihu.com/people/' + uid + '/followers', function(res){
+				try{
+					var user = getUserInformation(res);
+					if( user ){
 						var con = new connection(dbOption);
 						con.update('sp_user', {
 							where: {
 								uid: uid
 							},
 							values: {
-								sex: users[uid].gender,
-								followed: users[uid].followerCount,
+								nickname: user.nickname,
+								sex: user.sex,
+								followed: user.followed,
+								asks: user.asks,
+								answers: user.answers,
 								updateTime: dateFormat(new Date(), 'yyyy-MM-dd hh:mm:ss')
 							}
 						}, function(updateRes){
@@ -129,18 +161,14 @@ var updateUser = function(){
 					}else{
 						updateUserInformation(++userIndex);
 					}
+				}catch(e){
+					updateUserInformation(++userIndex);
 				}
 			});
 		}
 	}
 	var con = new connection(dbOption);
 	con.find('sp_user', {
-		where: {
-			followed: '0'
-		},
-		order: {
-			id: 'desc'
-		},
 		colums: ['uid', 'updateTime']
 	}, function(findRes){
 		if( findRes && findRes.data && findRes.data && findRes.data.rows.length ){
@@ -217,7 +245,7 @@ var updateUserQuestion = function(){
 	});
 }
 
-// getUser('an-rui-dong-98', 0);
+// getUser('yu-fu-80', 0);
 
 updateUser();
 
