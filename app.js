@@ -119,6 +119,7 @@ var getUserInformation = function(body){
 			sex = 0;
 		}
 		var location = '0' == $('span.location').length ? null : $('span.location').text();
+		var education = '0' == $('span.education').length ? null : $('span.education').attr('title');
 		var followerCount = $('.zm-profile-side-following').find('a').eq(1).find('strong').text();
 		var profile = $('.profile-navbar'),
 			asks = profile.find('a').eq(1).find('span').text() || 0,
@@ -142,6 +143,7 @@ var getUserInformation = function(body){
 			followed: followerCount,
 			asks: asks,
 			location: location,
+			education: education,
 			answers: answers,
 			followerList: '0' == followerList.length ? null : followerList,
 			asksList: '0' == asksList.length ? null : asksList
@@ -171,6 +173,7 @@ var updateUser = function(){
 								sex: user.sex,
 								followed: user.followed,
 								location: user.location,
+								education: user.education,
 								asks: user.asks,
 								answers: user.answers,
 								updateTime: dateFormat(new Date(), 'yyyy-MM-dd hh:mm:ss')
