@@ -118,7 +118,7 @@ var getUserInformation = function(body){
 		}else if( gender.find('.icon-profile-female').length ){
 			sex = 0;
 		}
-		var location = $('span.location').length ? $('span.location').text() : '';
+		var location = '0' == $('span.location').length ? null : $('span.location').text();
 		var followerCount = $('.zm-profile-side-following').find('a').eq(1).find('strong').text();
 		var profile = $('.profile-navbar'),
 			asks = profile.find('a').eq(1).find('span').text() || 0,
