@@ -105,26 +105,46 @@ var getUser = function(userName, level){
 
 var getUserInformation = function(body){
 	try{
-		var $ = cheerio.load(body), user = $('a.name'), followerList = $('.zm-item-link-avatar');
+		var $ = cheerio.load(body),
+			user = $('a.name'),
+			followerList = $('.zm-item-link-avatar'),
+			questionLink = $('.zm-profile-section-main');
+
 		var userName = user.text(),
-			userId = user.attr('href').split('/')[2];
-		var gender = $('span.gender'), sex = -1;
+			userId = user.attr('href').split('/')[2],
+			gender = $('span.gender'), sex = -1;
 		if( gender.find('.icon-profile-male').length ){
 			sex = 1;
 		}else if( gender.find('.icon-profile-female').length ){
 			sex = 0;
 		}
+		var location = $('span.location').length ? $('span.location').text() : '';
 		var followerCount = $('.zm-profile-side-following').find('a').eq(1).find('strong').text();
 		var profile = $('.profile-navbar'),
 			asks = profile.find('a').eq(1).find('span').text() || 0,
 			answers = profile.find('a').eq(2).find('span').text() || 0;
+		var asksList = [];
+		if( questionLink.length ){
+			questionLink.each(function(){
+				var question = $(this).find('.question_link');
+				asksList.push({
+					id: question.attr('href').split('/')[2],
+					title: question.text(),
+					answerCount: $(this).find('.zg-bull').eq(0),
+					followerCount: $(this).find('.zg-bull').eq(1)
+				});
+			});
+		}
 		return {
 			nickname: userName,
 			uid: userId,
 			sex: sex,
 			followed: followerCount,
 			asks: asks,
-			answers: answers
+			location: location,
+			answers: answers,
+			followerList: '0' == followerList.length ? null : followerList,
+			asksList: '0' == asksList.length ? null : asksList
 		}
 	}catch(e){
 		cosole.log(e);
@@ -150,6 +170,7 @@ var updateUser = function(){
 								nickname: user.nickname,
 								sex: user.sex,
 								followed: user.followed,
+								location: user.location,
 								asks: user.asks,
 								answers: user.answers,
 								updateTime: dateFormat(new Date(), 'yyyy-MM-dd hh:mm:ss')
@@ -169,7 +190,10 @@ var updateUser = function(){
 	}
 	var con = new connection(dbOption);
 	con.find('sp_user', {
-		colums: ['uid', 'updateTime']
+		colums: ['uid', 'updateTime'],
+		order: {
+			id: 'desc'
+		}
 	}, function(findRes){
 		if( findRes && findRes.data && findRes.data && findRes.data.rows.length ){
 			userList = findRes.data.rows;
@@ -184,58 +208,92 @@ var updateUserQuestion = function(){
 	var getQuestion = function(userIndex){
 		if( userList && userList[userIndex] ){
 			var uid = userList[userIndex].uid;
-			getPage('https://www.zhihu.com/people/' + uid + '/asks', function(res){
-				var $ = cheerio.load(res), rawString = $('#data').attr('data-state');
-				if( rawString ){
-					var rawData = JSON.parse(rawString);
-					var questionList = rawData.entities.questions;
-					for(var i in questionList){
-						(function(index, data){
+			if( userList[userIndex].asks > 0 ){
+				getPage('https://www.zhihu.com/people/' + uid + '/asks', function(res){
+					try{
+						var user = getUserInformation(res);
+						if( user ){
 							var con = new connection(dbOption);
-							con.count('sp_questions', {
+							con.update('sp_user', {
 								where: {
-									qid: index
+									uid: uid
+								},
+								values: {
+									nickname: user.nickname,
+									sex: user.sex,
+									followed: user.followed,
+									asks: user.asks,
+									answers: user.answers,
+									updateTime: dateFormat(new Date(), 'yyyy-MM-dd hh:mm:ss')
 								}
-							}, function(countRes){
-								if( countRes && countRes.data && countRes.data.totalRows > 0 ){
-									con.update('sp_questions', {
-										where: {
-											qid: index
-										},
-										values: {
+							}, function(updateRes){
+								if( user.asksList ){
+									for(var i in user.asksList ){
+										(function(data){
+											
+										})(user.asksList[i]);
+									}
+								}
+								// updateUserInformation(++userIndex);
+								// con.release();
+							});
+						}
+					}catch(e){
+						console.log(e);
+					}
+					var $ = cheerio.load(res), rawString = $('#data').attr('data-state');
+					if( rawString ){
+						var rawData = JSON.parse(rawString);
+						var questionList = rawData.entities.questions;
+						for(var i in questionList){
+							(function(index, data){
+								var con = new connection(dbOption);
+								con.count('sp_questions', {
+									where: {
+										qid: index
+									}
+								}, function(countRes){
+									if( countRes && countRes.data && countRes.data.totalRows > 0 ){
+										con.update('sp_questions', {
+											where: {
+												qid: index
+											},
+											values: {
+												answerCount: data.answerCount,
+												followerCount: data.followerCount,
+												createTime: data.created,
+												updateTime: data.updatedTime
+											}
+										}, function(){
+											con.release();
+										});
+									}else{
+										con.insert('sp_questions', {
+											qid: index,
+											uid: uid,
+											title: data.title.replace(/"/g, '\''),
 											answerCount: data.answerCount,
 											followerCount: data.followerCount,
 											createTime: data.created,
 											updateTime: data.updatedTime
-										}
-									}, function(){
-										con.release();
-									});
-								}else{
-									con.insert('sp_questions', {
-										qid: index,
-										uid: uid,
-										title: data.title.replace(/"/g, '\''),
-										answerCount: data.answerCount,
-										followerCount: data.followerCount,
-										createTime: data.created,
-										updateTime: data.updatedTime
-									}, function(insertRresult){
-										con.release();
-									});
-								}
-							});
-						})(i, questionList[i]);
+										}, function(insertRresult){
+											con.release();
+										});
+									}
+								});
+							})(i, questionList[i]);
+						}
 					}
-				}
-				getQuestion(++userIndex);
-			});
+					getQuestion(++userIndex);
+				});
+			}
+			
 		}
 	}
 
 	var con = new connection(dbOption);
 	con.find('sp_user', {
-		colums: ['uid']
+		colums: ['uid', 'asks']
 	}, function(findRes){
 		if( findRes && findRes.data && findRes.data.rows.length ){
 			userList = findRes.data.rows;
