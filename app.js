@@ -204,7 +204,7 @@ var updateUser = function(){
 			colums: ['uid', 'updateTime'],
 			page: pageNum
 		}, function(findRes){
-			totalPage = findRes.totalPage;
+			totalPage = findRes.data.totalPages;
 			if( findRes && findRes.data && findRes.data && findRes.data.rows.length ){
 				userList = findRes.data.rows;
 				console.log('Current page number: ' + currentPage);
