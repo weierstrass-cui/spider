@@ -118,8 +118,8 @@ var getUserInformation = function(body){
 		}else if( gender.find('.icon-profile-female').length ){
 			sex = 0;
 		}
-		var location = '0' == $('span.location').length ? null : $('span.location').text();
-		var education = '0' == $('span.education').length ? null : $('span.education').attr('title');
+		var location = '0' == $('span.location').length ? '' : $('span.location').text();
+		var education = '0' == $('span.education').length ? '' : $('span.education').attr('title');
 		var followerCount = $('.zm-profile-side-following').find('a').eq(1).find('strong').text();
 		var profile = $('.profile-navbar'),
 			asks = profile.find('a').eq(1).find('span').text() || 0,
@@ -155,7 +155,7 @@ var getUserInformation = function(body){
 }
 
 var updateUser = function(){
-	var userList = null;
+	var userList = null, totalPage = 0, currentPage = 1;
 	var updateUserInformation = function(userIndex){
 		if( userList && userList[userIndex] ){
 			var uid = userList[userIndex].uid;
@@ -189,21 +189,33 @@ var updateUser = function(){
 					updateUserInformation(++userIndex);
 				}
 			});
+		}else{
+			if( currentPage < totalPage ){
+				getUserList(++currentPage);
+			}else{
+				console.log('Finish update.');
+				return;
+			}
 		}
 	}
-	var con = new connection(dbOption);
-	con.find('sp_user', {
-		colums: ['uid', 'updateTime'],
-		order: {
-			id: 'desc'
-		}
-	}, function(findRes){
-		if( findRes && findRes.data && findRes.data && findRes.data.rows.length ){
-			userList = findRes.data.rows;
-			updateUserInformation(0);
-		}
-		con.release();
-	});
+	var getUserList = function(pageNum){
+		var con = new connection(dbOption);
+		con.find('sp_user', {
+			colums: ['uid', 'updateTime'],
+			page: pageNum
+		}, function(findRes){
+			totalPage = findRes.totalPage;
+			if( findRes && findRes.data && findRes.data && findRes.data.rows.length ){
+				userList = findRes.data.rows;
+				console.log('Current page number: ' + currentPage);
+				console.log('Total: ' + userList.length + ' users in query.');
+				console.log('*************************************');
+				updateUserInformation(0);
+			}
+			con.release();
+		});
+	}
+	getUserList(currentPage);
 }
 
 var updateUserQuestion = function(){
