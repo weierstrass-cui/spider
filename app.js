@@ -10,8 +10,8 @@ var userPool = {}, searchLevel = configs.searchLevel,
 var headers = {
 	'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
 	'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 9_1 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0 Mobile/13B143 Safari/601.1',
-    'Cookie': 'q_c1=8911399a93ee4a99b0ab2e8bddda1784|1489296819000|1489296819000; nweb_qa=heifetz; d_c0="AFCCBi1UcAuPThtP58EDcMJVndvHGcAaDB8=|1489296819"; _zap=2ed101dd-f0cf-4cb4-b4db-10128cf76ca9; _xsrf=19e2dceb4d8653a14e50a6874ff72cef; aliyungf_tc=AQAAAOGhBDh6XwQA3IHtdHBIeRs7VCRM; r_cap_id="NDY4YTFmMjU0YjkzNGU3ZDhiNzc3MDMwZGNmOTBjMTg=|1491618474|ba4d3ab7442db050eb64f027c44f6410973cbff4"; cap_id="Mzk4YzQwMTNjYjBkNGU5Mzg2NWI0NTE0Y2E0ODY5YTg=|1491618474|e294e35d65f23e76f5cf295f074cbdeddf23914b"; l_n_c=1; z_c0=Mi4wQUdDQ2ZoMDlZd3NBVUlJR0xWUndDeGNBQUFCaEFsVk51dGNQV1FDSkZEcll3OUJQck4xSHd2Z3pVMFdDXzlpUnF3|1491618636|7e42bf8ed0c4e69a46b586f0008ca87918511902; __utma=51854390.255859250.1489296825.1489748801.1491618319.4; __utmb=51854390.0.10.1491618319; __utmc=51854390; __utmz=51854390.1489296825.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __utmv=51854390.100--|2=registration_date=20170302=1^3=entry_date=20170302=1',
-    'Connection': 'keep-alive'
+	'Cookie': 'd_c0="AFCCBi1UcAuPThtP58EDcMJVndvHGcAaDB8=|1489296819"; _zap=2ed101dd-f0cf-4cb4-b4db-10128cf76ca9; aliyungf_tc=AQAAAAoLrGiLVg4ACo/2OoxL/bIQuOzz; acw_tc=AQAAAKPdQluGHwEACo/2OgeArc5NPR3D; q_c1=8911399a93ee4a99b0ab2e8bddda1784|1494297341000|1489296819000; _xsrf=b7fa0cc816cd0accf5d68494e93df381; r_cap_id="MTAwNzI3NmY5ZGEwNDNjM2JiNTNmYjZkMGUzMDVkZjU=|1494297341|fed0eb0f35726182f8da85804a2afebbc9499950"; cap_id="MWMwODQwNTNmODljNGIwOWIzNzk3M2I3ZjlhZDc0ZGI=|1494297341|4f464e0886085a58951d8c4628f60ce9c537fe91"; l_n_c=1; z_c0=Mi4wQUdDQ2ZoMDlZd3NBVUlJR0xWUndDeGNBQUFCaEFsVk5EYmc0V1FBMTRBblVBZ2lqX3ZGWEdhcF9fVl9aSlF2c1NR|1494297376|95eb73709eb7ccc3ddba1332ed25b5ddfb448889; __utma=51854390.1673115600.1491829411.1491829411.1494297397.2; __utmb=51854390.0.10.1494297397; __utmc=51854390; __utmz=51854390.1491829411.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __utmv=51854390.110--|2=registration_date=20170302=1^3=entry_date=20170302=1',
+	'Connection': 'keep-alive'
 }
 
 var dateFormat = function(date){
@@ -41,65 +41,6 @@ var getPage = function(url, callback){
 			return false;
 		}
 		typeof callback === 'function' && callback(body);
-	});
-}
-
-var getUser = function(userName, level){
-	if( level > searchLevel ){
-		return false;
-	}
-	var thisLevel = level + 1;
-	getPage('https://www.zhihu.com/people/' + userName + '/following', function(res){
-		var $ = cheerio.load(res), rawString = $('#data').attr('data-state');
-		if( rawString ){
-			var rawData = JSON.parse(rawString);
-			var userList = rawData.entities.users;
-			for(var i in userList){
-				if( userPool[i] ){
-					continue;
-				}
-				userPool[i] = {
-					nickname: userList[i].name,
-					uid: i
-				};
-				(function(index){
-					var con = new connection(dbOption);
-					con.count('sp_user', {
-						where: {
-							uid: index
-						}
-					}, function(countRes){
-						if( countRes && countRes.data && countRes.data.totalRows > 0 ){
-							con.update('sp_user', {
-								where: {
-									uid: index
-								},
-								values: {
-									nickname: userList[index].name,
-									sex: userList[index].gender,
-									followed: userList[index].followerCount
-								}
-							}, function(updateRes){
-								getUser(index, thisLevel);
-								con.release();
-							});
-						}else{
-							con.insert('sp_user', {
-								nickname: userList[index].name,
-								uid: index,
-								sex: userList[index].gender,
-								followed: userList[index].followerCount
-							}, function(insertRresult){
-								if( insertRresult && insertRresult.data && insertRresult.data.rows ){
-									getUser(index, thisLevel);
-								}
-								con.release();
-							});
-						}
-					});
-				})(i);
-			}
-		}
 	});
 }
 
@@ -154,8 +95,55 @@ var getUserInformation = function(body){
 	}
 }
 
+var getFollowers = function(body){
+	try{
+		var $ = cheerio.load(body), followerList = [],
+			followerQuery = $('a.zm-item-link-avatar');
+		if( followerQuery.length ){
+			followerQuery.each(function(){
+				followerList.push({
+					nickname: $(this).attr('title'),
+					uid: $(this).attr('href').split('/')[2],
+					followed: 0
+				});
+			});
+		}
+		return followerList;
+	}catch(e){
+		cosole.log(e);
+		return null;
+	}
+}
+
 var updateUser = function(){
-	var userList = null, totalPage = 0, currentPage = 1;
+	var userList = null, totalPage = 0, currentPage = 1, followerList = null;
+	var insertNewUser = function(userIndex, parentIndex){
+		if( followerList && followerList[userIndex] ){
+			var newUser = followerList[userIndex];
+			var con = new connection(dbOption);
+			con.count('sp_user', {
+				where: {
+					uid: newUser.uid
+				}
+			}, function(countRes){
+				if( countRes && countRes.data && countRes.data.totalRows == 0 ){
+					con.insert('sp_user', {
+						nickname: newUser.nickname,
+						uid: newUser.uid,
+						followed: newUser.followed
+					}, function(insertRresult){
+						insertNewUser(++userIndex, parentIndex);
+						con.release();
+					});
+				}else{
+					insertNewUser(++userIndex, parentIndex);
+					con.release();
+				}
+			});
+		}else{
+			updateUserInformation(parentIndex);
+		}
+	}
 	var updateUserInformation = function(userIndex){
 		if( userList && userList[userIndex] ){
 			var uid = userList[userIndex].uid;
@@ -179,7 +167,13 @@ var updateUser = function(){
 								updateTime: dateFormat(new Date(), 'yyyy-MM-dd hh:mm:ss')
 							}
 						}, function(updateRes){
-							updateUserInformation(++userIndex);
+							var followers = getFollowers(res);
+							if( followers && followers.length ){
+								followerList = followers;
+								insertNewUser(0, ++userIndex);
+							}else{
+								updateUserInformation(++userIndex);
+							}
 							con.release();
 						});
 					}else{
@@ -207,7 +201,7 @@ var updateUser = function(){
 			totalPage = findRes.data.totalPages;
 			if( findRes && findRes.data && findRes.data && findRes.data.rows.length ){
 				userList = findRes.data.rows;
-				console.log('Current page number: ' + currentPage);
+				console.log('Current page number: ' + currentPage + '/' + totalPage);
 				console.log('Total: ' + userList.length + ' users in query.');
 				console.log('*************************************');
 				updateUserInformation(0);
@@ -317,8 +311,6 @@ var updateUserQuestion = function(){
 		con.release();
 	});
 }
-
-// getUser('yu-fu-80', 0);
 
 updateUser();
 
