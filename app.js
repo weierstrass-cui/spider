@@ -150,7 +150,6 @@ var updateUser = function(){
 		if( userList && userList[userIndex] ){
 			var uid = userList[userIndex].uid;
 			getPage('https://www.zhihu.com/people/' + uid + '/followers', function(res){
-				console.log(res);
 				try{
 					var user = getUserInformation(res);
 					if( user ){
