@@ -10,7 +10,7 @@ var userPool = {}, searchLevel = configs.searchLevel,
 var headers = {
 	'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
 	'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 9_1 like Mac OS X) AppleWebKit/601.1.46 (KHTML, like Gecko) Version/9.0 Mobile/13B143 Safari/601.1',
-	'Cookie': 'd_c0="AFCCBi1UcAuPThtP58EDcMJVndvHGcAaDB8=|1489296819"; _zap=2ed101dd-f0cf-4cb4-b4db-10128cf76ca9; aliyungf_tc=AQAAAAoLrGiLVg4ACo/2OoxL/bIQuOzz; acw_tc=AQAAAKPdQluGHwEACo/2OgeArc5NPR3D; q_c1=8911399a93ee4a99b0ab2e8bddda1784|1494297341000|1489296819000; _xsrf=b7fa0cc816cd0accf5d68494e93df381; r_cap_id="MTAwNzI3NmY5ZGEwNDNjM2JiNTNmYjZkMGUzMDVkZjU=|1494297341|fed0eb0f35726182f8da85804a2afebbc9499950"; cap_id="MWMwODQwNTNmODljNGIwOWIzNzk3M2I3ZjlhZDc0ZGI=|1494297341|4f464e0886085a58951d8c4628f60ce9c537fe91"; l_n_c=1; z_c0=Mi4wQUdDQ2ZoMDlZd3NBVUlJR0xWUndDeGNBQUFCaEFsVk5EYmc0V1FBMTRBblVBZ2lqX3ZGWEdhcF9fVl9aSlF2c1NR|1494297376|95eb73709eb7ccc3ddba1332ed25b5ddfb448889; __utma=51854390.1673115600.1491829411.1491829411.1494297397.2; __utmb=51854390.0.10.1494297397; __utmc=51854390; __utmz=51854390.1491829411.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __utmv=51854390.110--|2=registration_date=20170302=1^3=entry_date=20170302=1',
+	'Cookie': 'd_c0="AECCiYo-mwuPTnQDgIa-8ELL559tEVuU1OI=|1492176829"; _zap=a66fa8f4-11c6-4fbf-a20a-82f948797854; aliyungf_tc=AQAAAKmQhWog4AoACo/2OjNYm3Px9rNL; acw_tc=AQAAADLmqksFmwsACo/2OjDogzUWpCRI; q_c1=0c5d679fd4774202aa9bf49d1bb68a83|1494990311000|1492176828000; _xsrf=8b8c45899e02c469e63f885bd6a5335a; r_cap_id="YTg1MTllYjViYzFlNDVkNmE3MDI1YTJjOTBiOTk0M2U=|1496281083|48bd0f143745dddacc1e2cb81d02b35a98d72d63"; cap_id="YzI4Mzc4YjU0YjZhNDkxOWI2YThiNDM4ZWVmYWFhZDg=|1496281083|529dddcc5f659c2bcfe461ad834408df0611decb"; __utma=51854390.1142255077.1495705467.1495705467.1496279871.2; __utmb=51854390.0.10.1496279871; __utmc=51854390; __utmz=51854390.1496279871.2.2.utmcsr=zhihu.com|utmccn=(referral)|utmcmd=referral|utmcct=/; __utmv=51854390.000--|2=registration_date=20170302=1^3=entry_date=20170414=1; z_c0=Mi4wQUdDQ2ZoMDlZd3NBUUlLSmlqNmJDeGNBQUFCaEFsVk5IUDFXV1FDOHlxTXprREVkV2syLXdlWFBBYTRLNGdXcGdB|1496281135|a8ef1312962ba56081bb32036994cf1a680d3bf6',
 	'Connection': 'keep-alive'
 }
 
@@ -148,6 +148,7 @@ var updateUser = function(){
 		if( userList && userList[userIndex] ){
 			var uid = userList[userIndex].uid;
 			getPage('https://www.zhihu.com/people/' + uid + '/followers', function(res){
+				console.log(res);
 				try{
 					var user = getUserInformation(res);
 					if( user ){
@@ -172,15 +173,21 @@ var updateUser = function(){
 								followerList = followers;
 								insertNewUser(0, ++userIndex);
 							}else{
-								updateUserInformation(++userIndex);
+								setTimeout(function(){
+									updateUserInformation(++userIndex);
+								}, 60000);
 							}
 							con.release();
 						});
 					}else{
-						updateUserInformation(++userIndex);
+						setTimeout(function(){
+							updateUserInformation(++userIndex);
+						}, 60000);
 					}
 				}catch(e){
-					updateUserInformation(++userIndex);
+					setTimeout(function(){
+						updateUserInformation(++userIndex);
+					}, 60000);
 				}
 			});
 		}else{
@@ -196,7 +203,10 @@ var updateUser = function(){
 		var con = new connection(dbOption);
 		con.find('sp_user', {
 			colums: ['uid', 'updateTime'],
-			page: pageNum
+			page: pageNum,
+			where: {
+				updateTime: 'CURRENT_TIMESTAMP'
+			}
 		}, function(findRes){
 			totalPage = findRes.data.totalPages;
 			if( findRes && findRes.data && findRes.data && findRes.data.rows.length ){
