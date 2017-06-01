@@ -1,5 +1,5 @@
 'use strict'
-
+var sleepTime = 60000;
 var request = require('request'),
 	cheerio = require('cheerio'),
 	connection = require('./sql.js'),
@@ -141,7 +141,9 @@ var updateUser = function(){
 				}
 			});
 		}else{
-			updateUserInformation(parentIndex);
+			setTimeout(function(){
+				updateUserInformation(parentIndex);
+			}, sleepTime);
 		}
 	}
 	var updateUserInformation = function(userIndex){
@@ -175,19 +177,19 @@ var updateUser = function(){
 							}else{
 								setTimeout(function(){
 									updateUserInformation(++userIndex);
-								}, 60000);
+								}, sleepTime);
 							}
 							con.release();
 						});
 					}else{
 						setTimeout(function(){
 							updateUserInformation(++userIndex);
-						}, 60000);
+						}, sleepTime);
 					}
 				}catch(e){
 					setTimeout(function(){
 						updateUserInformation(++userIndex);
-					}, 60000);
+					}, sleepTime);
 				}
 			});
 		}else{
