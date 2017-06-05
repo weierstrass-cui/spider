@@ -50,8 +50,51 @@ SqlClass.prototype.buildNql = function(options){
 			}
 
 			if( options.where && options.where.constructor === Object ){
-				for( var i in options.where ){
-					whereArray.push(i + ' = "' + options.where[i] + '"');
+				var getWhereQuery = function(optObjs){
+					var whereQuery = [];
+					for(var key in optObjs ){
+						switch( key ){
+							case 'isEquals':
+								for(var isEqualsKey in optObjs[key]){
+									whereQuery.push(isEqualsKey + ' = "' + optObjs[key][isEqualsKey] + '"');
+								}
+								break;
+							case 'isNull':
+								for(var isNullKey in optObjs[key]){
+									whereQuery.push(optObjs[key][isNullKey] + ' is NULL');
+								}
+								break;
+							case 'isGt':
+								for(var isGtKey in optObjs[key]){
+									whereQuery.push(isGtKey + ' > "' + optObjs[key][isGtKey] + '"');
+								}
+								break;
+							case 'isLt':
+								for(var isLtKey in optObjs[key]){
+									whereQuery.push(isLtKey + ' < "' + optObjs[key][isLtKey] + '"');
+								}
+								break;
+							default:
+								if( optObjs[key] && 'string' === optObjs[key] ){
+									whereQuery.push(key + ' = "' + optObjs[key] + '"');
+								}
+								break;
+						}
+					}
+					return whereQuery;
+				}
+				for(var whereKey in options.where){
+					switch( whereKey ){
+						case 'isOr':
+								whereArray.push(' ( ' + getWhereQuery(options.where[whereKey]).join(' or ') + ' ) ');
+							break;
+						case 'isAnd':
+								whereArray.push(' ( ' + getWhereQuery(options.where[whereKey]).join(' and ') + ' ) ');
+							break;
+						default:
+							whereArray.push(whereKey + ' = "' + options.where[whereKey] + '"');
+							break;
+					}
 				}
 			}
 
@@ -242,7 +285,7 @@ SqlClass.prototype.count = function(table){
 			var nqlQuery = this.buildNql(options);
 			var nql = 'select count(*) as count from ' + table + ' where ' + nqlQuery.whereString;
 			if( nqlQuery.groupString ) nql += ' group by ' + nqlQuery.groupString;
-
+			
 			connection.query(nql, function(countErr, countResult){
 				if( countErr ){
 					log4nql('error', countErr, callback);
